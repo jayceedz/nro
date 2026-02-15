@@ -9698,6 +9698,38 @@ void clif_name( struct block_list* src, struct block_list *bl, send_target targe
 	clif_send( &packet, sizeof( packet ), src, target );
 }
 
+void clif_goldpc_info( struct map_session_data& sd ){
+#if PACKETVER_MAIN_NUM >= 20140508 || PACKETVER_RE_NUM >= 20140508 || defined(PACKETVER_ZERO)
+	if( battle_config.feature_goldpc_active ){
+		struct PACKET_ZC_GOLDPCCAFE_POINT p = {};
+
+		p.packetType = HEADER_ZC_GOLDPCCAFE_POINT;
+		p.active = sd.goldpc_tid != INVALID_TIMER;
+		if( battle_config.feature_goldpc_vip && pc_isvip( &sd ) ){
+			p.unitPoint = 2;
+		}else{
+			p.unitPoint = 1;
+		}
+		p.point = (int32)pc_readreg2( &sd, GOLDPC_POINT_VAR );
+		// TODO: check if we should send max value, if disabled/max reached
+		p.accumulatePlaySecond = (int32)( 3600 - battle_config.feature_goldpc_time + pc_readreg2( &sd, GOLDPC_SECONDS_VAR ) );
+
+		clif_send( &p, sizeof( p ), &sd.bl, SELF );
+	}
+#endif
+}
+
+void clif_parse_dynamic_npc( int fd, map_session_data* sd ){
+#if PACKETVER_MAIN_NUM >= 20140430 || PACKETVER_RE_NUM >= 20140430 || defined(PACKETVER_ZERO)
+
+	if (!sd || sd->state.menu_or_input || sd->state.trading || sd->state.using_fake_npc || sd->npc_id)
+		return;
+
+	npc_event_do_id("Goldpoint Manager::OnGOLDPCCAFE", sd->status.account_id);
+#endif
+}
+
+
 /// Taekwon Jump (TK_HIGHJUMP) effect (ZC_HIGHJUMP).
 /// 01ff <id>.L <x>.W <y>.W
 ///

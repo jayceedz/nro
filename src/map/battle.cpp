@@ -8968,7 +8968,11 @@ static const struct _battle_data {
 	{ "ex_vending_report",					&battle_config.ex_vending_report,				1,		0,		1,				}, // [Easycore]
 	{ "item_zeny",							&battle_config.item_zeny,						0,		0,		MAX_ITEMID,		},
 	{ "item_cash",							&battle_config.item_cash,						0,		0,		MAX_ITEMID,		},
- 
+ 	{ "feature.goldpc_active",              &battle_config.feature_goldpc_active,           1,      0,      1,              },
+	{ "feature.goldpc_time",                &battle_config.feature_goldpc_time,          3600,      0,   3600,              },
+	{ "feature.goldpc_max_points",          &battle_config.feature_goldpc_max_points,     300,      0,    300,              },
+	{ "feature.goldpc_vip",                 &battle_config.feature_goldpc_vip,              1,      0,      1,              },
+
 #include "../custom/battle_config_init.inc"
 };
 

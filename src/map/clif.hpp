@@ -1151,4 +1151,6 @@ void clif_parse_skill_toid( struct map_session_data* sd, uint16 skill_id, uint16
 /// Extended Vending [Lilith]
 int clif_vend(struct map_session_data *sd, int skill_lv);
 
+void clif_goldpc_info( struct map_session_data& sd );
+
 #endif /* CLIF_HPP */

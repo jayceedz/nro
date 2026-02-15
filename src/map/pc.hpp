@@ -55,6 +55,8 @@ enum sc_type : int16;
 #define ATTENDANCE_DATE_VAR "#AttendanceDate"
 #define ATTENDANCE_COUNT_VAR "#AttendanceCounter"
 #define ACHIEVEMENTLEVEL "AchievementLevel"
+#define GOLDPC_POINT_VAR "Hourly_Points"
+#define GOLDPC_SECONDS_VAR "Goldpc_Seconds"
 
 //Update this max as necessary. 55 is the value needed for Super Baby currently
 //Raised to 105 since Expanded Super Baby needs it.
@@ -258,6 +260,7 @@ struct map_session_data {
 	struct status_change sc;
 	struct regen_data regen;
 	struct regen_data_sub sregen, ssregen;
+	int goldpc_tid;
 	//NOTE: When deciding to add a flag to state or special_state, take into consideration that state is preserved in
 	//status_calc_pc, while special_state is recalculated in each call. [Skotlex]
 	struct s_state {
