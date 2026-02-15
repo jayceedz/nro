@@ -8958,7 +8958,17 @@ static const struct _battle_data {
 	{ "ping_time",                          &battle_config.ping_time,                       20,     0,      99999999,       },
 	{ "show_skill_scale",                   &battle_config.show_skill_scale,                1,      0,      1,              },
 	{ "feature.refineui",                   &battle_config.feature_refineui,                3,      0,      3,              },
-
+	/**
+	* Extended Vending system [Lilith]
+	**/
+	{ "extended_vending",					&battle_config.extended_vending,				1,		0,		1,				},
+	{ "show_broadcas_info",					&battle_config.show_broadcas_info,				1,		0,		1,				},
+	{ "show_item_vending",					&battle_config.show_item_vending,				1,		0,		1,				},
+	{ "ex_vending_info",					&battle_config.ex_vending_info,					1,		0,		1,				},
+	{ "ex_vending_report",					&battle_config.ex_vending_report,				1,		0,		1,				}, // [Easycore]
+	{ "item_zeny",							&battle_config.item_zeny,						0,		0,		MAX_ITEMID,		},
+	{ "item_cash",							&battle_config.item_cash,						0,		0,		MAX_ITEMID,		},
+ 
 #include "../custom/battle_config_init.inc"
 };
 
