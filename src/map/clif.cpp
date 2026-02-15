@@ -7216,7 +7216,7 @@ void clif_openvendingreq(struct map_session_data* sd, int num)
 	nullpo_retv(sd);
 
 	// Vending shouldn't open if vend_loot is 0 and extended vending is enabled [Easycore]
-	ShowWarning("vend loot = %d\n", sd->vend_loot);
+//ShowWarning("vend loot = %d\n", sd->vend_loot);
 	if (battle_config.extended_vending && sd->vend_loot == 0) {
 		sd->state.prevend = 0;
 		return;
