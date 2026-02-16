@@ -11,6 +11,7 @@
 #include "../common/strlib.hpp"// StringBuf
 #include "../common/timer.hpp"
 
+#include "autoattack.hpp"
 #include "battleground.hpp"
 #include "buyingstore.hpp" // struct s_buyingstore
 #include "clif.hpp" //e_wip_block
@@ -261,9 +262,11 @@ struct map_session_data {
 	struct regen_data regen;
 	struct regen_data_sub sregen, ssregen;
 	int goldpc_tid;
+	struct s_autoattack aa;
 	//NOTE: When deciding to add a flag to state or special_state, take into consideration that state is preserved in
 	//status_calc_pc, while special_state is recalculated in each call. [Skotlex]
 	struct s_state {
+		unsigned int autoattack : 1;
 		unsigned int norecall : 1; // [Vykimo] @norecall state
 		unsigned int active : 1; //Marks active player (not active is logging in/out, or changing map servers)
 		unsigned int menu_or_input : 1;// if a script is waiting for feedback from the player

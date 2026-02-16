@@ -24,6 +24,7 @@
 #include "../common/utils.hpp"
 
 #include "achievement.hpp"
+#include "autoattack.hpp"
 #include "battle.hpp"
 #include "clif.hpp"
 #include "elemental.hpp"
@@ -1271,6 +1272,8 @@ static int mob_ai_sub_hard_activesearch(struct block_list *bl,va_list ap)
 	md=va_arg(ap,struct mob_data *);
 	target= va_arg(ap,struct block_list**);
 	mode= static_cast<enum e_mode>(va_arg(ap, int));
+
+	aa_mob_ai_search_mvpcheck(bl, md);
 
 	//If can't seek yet, not an enemy, or you can't attack it, skip.
 	if ((*target) == bl || !status_check_skilluse(&md->bl, bl, 0, 0))
@@ -2621,6 +2624,11 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 
 			if ((base_exp > 0 || job_exp > 0) && md->dmglog[i].flag == MDLF_HOMUN && homkillonly && battle_config.hom_idle_no_share && pc_isidle_hom(tmpsd[i]))
 				base_exp = job_exp = 0;
+ 
+			if (sd && sd->state.autoattack) {
+				base_exp = base_exp * battle_config.feature_autoattack_exp_ratio / 100;
+				job_exp = job_exp * battle_config.feature_autoattack_exp_ratio / 100;
+			}
 
 			if ( ( temp = tmpsd[i]->status.party_id)>0 ) {
 				int j;
@@ -2772,6 +2780,14 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 					drop_rate = 1;
 			}
 #endif
+
+ 
+			if (sd && sd->state.autoattack && drop_rate > 0) {
+				drop_rate = drop_rate * battle_config.feature_autoattack_drop_ratio / 100;
+				drop_rate = max(drop_rate, 1);
+			}
+
+
 			// attempt to drop the item
 			if (rnd() % 10000 >= drop_rate)
 				continue;
@@ -2826,6 +2842,11 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 					else
 						//it's positive, then it goes as it is
 						drop_rate = it.rate;
+
+					if (sd && sd->state.autoattack && drop_rate > 0) {
+						drop_rate = drop_rate * battle_config.feature_autoattack_drop_ratio / 100;
+						drop_rate = max(drop_rate, 1);
+					}
 
 					if (rnd()%10000 >= drop_rate)
 						continue;

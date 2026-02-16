@@ -28,6 +28,7 @@
 #include "achievement.hpp"
 #include "atcommand.hpp" // get_atcommand_level()
 #include "battle.hpp" // battle_config
+#include "autoattack.hpp"
 #include "battleground.hpp"
 #include "buyingstore.hpp"  // struct s_buyingstore
 #include "channel.hpp"
@@ -420,6 +421,10 @@ static TIMER_FUNC(pc_invincible_timer){
 
 void pc_setinvincibletimer(struct map_session_data* sd, int val) {
 	nullpo_retv(sd);
+ 
+	// Avoid mob teleport when hit after a teleport from autoattack
+	if(sd->state.autoattack)
+       return;
 
 	if( sd->invincible_timer != INVALID_TIMER )
 		delete_timer(sd->invincible_timer,pc_invincible_timer);
@@ -798,8 +803,14 @@ void pc_inventory_rentals(struct map_session_data *sd)
 		if( sd->inventory.u.items_inventory[i].expire_time == 0 )
 			continue;
 		if( sd->inventory.u.items_inventory[i].expire_time <= time(NULL) ) {
-			if (sd->inventory_data[i]->unequip_script)
-				run_script(sd->inventory_data[i]->unequip_script, 0, sd->bl.id, fake_nd->bl.id);
+			if (sd->inventory_data[i]->unequip_script) {
+				auto it = util::vector_get(AA_ITEMIDS, sd->inventory_data[i]->nameid);
+
+				if (it != AA_ITEMIDS.end())
+					status_change_end(&sd->bl, SC_AUTOATTACK, INVALID_TIMER);
+				else
+					run_script(sd->inventory_data[i]->unequip_script, 0, sd->bl.id, fake_nd->bl.id);
+			}
 			clif_rental_expired(sd, i, sd->inventory.u.items_inventory[i].nameid);
 			pc_delitem(sd, i, sd->inventory.u.items_inventory[i].amount, 0, 0, LOG_TYPE_OTHER);
 		} else {
@@ -1708,6 +1719,9 @@ bool pc_authok(struct map_session_data *sd, uint32 login_id2, time_t expiration_
 		sd->status.job_exp = MAX_LEVEL_JOB_EXP;
 		clif_updatestatus(sd, SP_JOBEXP);
 	}
+ 
+	// Autoattack load from SQL
+	aa_load(sd);
 
 	// Request all registries (auth is considered completed whence they arrive)
 	intif_request_registry(sd,7);
@@ -1956,6 +1970,9 @@ void pc_reg_received(struct map_session_data *sd)
 			clif_changeoption( &sd->bl );
 		}
 	}
+ 
+	//autoattack
+	sd->aa.duration_ = static_cast<int>(pc_readaccountreg(sd, add_str("#aa_duration")));
 
 	channel_autojoin(sd);
 }
@@ -6053,7 +6070,7 @@ enum e_setpos pc_setpos(struct map_session_data* sd, unsigned short mapindex, in
 			// Has to be done here, because otherwise unit_free_pc will free the stack already
 			st->state = END;
 		}
-
+		aa_moblist_reset_mapchange(sd);
 		return SETPOS_OK;
 	}
 
@@ -6144,6 +6161,7 @@ enum e_setpos pc_setpos(struct map_session_data* sd, unsigned short mapindex, in
 	else 
 		sd->count_rewarp = 0;
 	
+	aa_moblist_reset_mapchange(sd);
 	return SETPOS_OK;
 }
 
@@ -8177,6 +8195,8 @@ void pc_damage(struct map_session_data *sd,struct block_list *src,unsigned int h
 
 	if(battle_config.prevent_logout_trigger&PLT_DAMAGE)
 		sd->canlog_tick = gettick();
+
+	aa_priority_on_hit(sd, src);
 }
 
 TIMER_FUNC(pc_close_npc_timer){
@@ -8239,6 +8259,8 @@ int pc_dead(struct map_session_data *sd,struct block_list *src)
 	t_tick tick = gettick();
 	struct map_data *mapdata = map_getmapdata(sd->bl.m);
 
+	aa_reset_ondead(sd);
+	
 	// Activate Steel body if a super novice dies at 99+% exp [celest]
 	// Super Novices have no kill or die functions attached when saved by their angel
 	if (!sd->state.snovice_dead_flag && (sd->class_&MAPID_UPPERMASK) == MAPID_SUPER_NOVICE) {

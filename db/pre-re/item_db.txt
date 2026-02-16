@@ -6594,3 +6594,6 @@
 
 30000,Zeny,Zeny,3,,10,10,,,,,,,,,,,,,{},{},{}
 30001,Cash,Cash,3,,10,10,,,,,,,,,,,,,{},{},{}
+14316,Autoattack_Device,Autoattack Device,2,0,,0,,,,,0xFFFFFFFF,63,2,,,,,,{ callfunc "F_autoattacktoggle"; },{},{ sc_end SC_AUTOATTACK; }
+14317,Autoattack_Pack,Autoattack Pack,2,20,,10,,,,,0xFFFFFFFF,7,2,,,,,,{ rentitem 14316,604800; },{},{}
+ 

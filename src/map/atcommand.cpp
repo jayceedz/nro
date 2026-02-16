@@ -7773,6 +7773,10 @@ ACMD_FUNC(mobinfo)
 			base_exp += (base_exp * battle_config.vip_base_exp_increase) / 100;
 			job_exp += (job_exp * battle_config.vip_job_exp_increase) / 100;
 		}
+		if (sd->sc.data[SC_AUTOATTACK)) {
+			base_exp = base_exp * battle_config.feature_autoattack_exp_ratio / 100;
+			job_exp = job_exp * battle_config.feature_autoattack_exp_ratio / 100;
+		}
 #ifdef RENEWAL_EXP
 		if( battle_config.atcommand_mobinfo_type ) {
 			base_exp = base_exp * pc_level_penalty_mod(mob->lv - sd->status.base_level, mob->status.class_, mob->status.mode, 1) / 100;
@@ -7820,6 +7824,12 @@ ACMD_FUNC(mobinfo)
 				dropbonus += (droprate * sd->sc.data[SC_ITEMBOOST]->val1) / 100;
 			if (pc_isvip(sd)) // Display drop rate increase for VIP
 				dropbonus += (droprate * battle_config.vip_drop_increase) / 100;
+
+			if (sd->state.autoattack && droprate > 1) {
+				droprate = droprate * battle_config.feature_autoattack_drop_ratio / 100;
+				droprate = max(droprate, 1);
+				}
+				
 			if (dropbonus)
 				sprintf(atcmd_output2, " %s  %02.02f%% + (%02.02f%%)", createItemLink(item_data->nameid, 0, NULL).c_str(), (float)droprate / 100, (float)dropbonus / 100);
 			else
@@ -8296,6 +8306,23 @@ ACMD_FUNC(iteminfo)
 			clif_displaymessage(fd, atcmd_output);
 		}
 	}
+	return 0;
+}
+
+/*==========================================
+* @afk
+*------------------------------------------*/
+ACMD_FUNC(afk) {
+ 
+	nullpo_retr(-1, sd);
+
+	if (pc_isdead(sd)) {
+		clif_displaymessage(fd, "You cannot enter afk mode when dead.");
+		return -1;
+	}
+
+	sd->state.autotrade = 1;
+	clif_authfail_fd(fd, 15);
 	return 0;
 }
 
@@ -10741,6 +10768,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(heal),
 		ACMD_DEF(item),
 		ACMD_DEF(item2),
+		ACMD_DEF(afk),
 		ACMD_DEF2("itembound",item),
 		ACMD_DEF2("itembound2",item2),
 		ACMD_DEF(itemreset),

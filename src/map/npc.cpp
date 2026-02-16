@@ -238,8 +238,17 @@ int npc_enable_sub(struct block_list *bl, va_list ap)
 				sd->count_rewarp = 0;
 				return 1;
 			}
-			pc_setpos(sd, nd->u.warp.mapindex, nd->u.warp.x, nd->u.warp.y, CLR_OUTSIGHT);
+		if (sd->state.autoattack && sd->mapindex != nd->u.warp.mapindex)
 			break;
+			pc_setpos(sd, nd->u.warp.mapindex, nd->u.warp.x, nd->u.warp.y, CLR_OUTSIGHT);
+		if (sd->state.autoattack) {
+			aa_status_checkmapchange(sd);
+			if (sd->state.autotrade) {
+				pc_delinvincibletimer(sd);
+				clif_parse_LoadEndAck(0, sd);
+			}
+		}
+		break;
 		default:
 			// note : disablenpc doesn't reset the previous trigger status on official
 			if( npc_ontouch_event(sd,nd) > 0 && npc_ontouch2_event(sd,nd) > 0 )

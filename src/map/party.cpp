@@ -17,6 +17,7 @@
 
 #include "achievement.hpp"
 #include "atcommand.hpp"	//msg_txt()
+#include "autoattack.hpp"
 #include "battle.hpp"
 #include "clif.hpp"
 #include "instance.hpp"
@@ -449,7 +450,11 @@ int party_invite(struct map_session_data *sd,struct map_session_data *tsd)
 	tsd->party_invite=sd->status.party_id;
 	tsd->party_invite_account=sd->status.account_id;
 
-	clif_party_invite(sd,tsd);
+	if (tsd->state.autoattack && tsd->aa.accept_party_request)
+		aa_party_request(tsd);
+	else
+		clif_party_invite( sd, tsd );
+
 	return 1;
 }
 
