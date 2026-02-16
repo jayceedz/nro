@@ -15780,6 +15780,7 @@ void status_read_soullink_db(char* file_name) {
 	ShowInfo("status_read_soullink_db: Done reading %d custom soul links.\n", count);
 }
 
+
 /**
  * Sets defaults in tables and starts read db functions
  * sv_readdb reads the file, outputting the information line-by-line to
@@ -15845,9 +15846,8 @@ int status_readdb(void)
 	}
 
 	size_fix_db.load();
-
-	status_read_soullink_db("db/soul_link.yml");
 	
+	status_read_soullink_db("db/soul_link.yml");
 	return 0;
 }
 
