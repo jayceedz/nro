@@ -1226,6 +1226,132 @@ ACMD_FUNC(kill)
 	return 0;
 }
 
+
+/*==========================================
+* @runlabel by [rootKid]
+* Makes invoker run an 'On' label from within an npc
+* eg. @runlabel Healer#OnMinute44
+*------------------------------------------*/
+ACMD_FUNC(runlabel) {
+	char label_output[256],npcname[100],label[100];
+	nullpo_retr(-1, sd);
+	
+	if (!message || !*message) {
+		sprintf(atcmd_output, "Usage: @runlabel <npc name>, <label>");
+		clif_displaymessage(fd, atcmd_output);
+		return -1;
+	}
+	
+	if (sscanf(message, "%23[^,], %99[^\n]", npcname, label) < 2) {
+		clif_displaymessage(fd, "Please, enter the correct info (usage: @runlabel <npc name>, <label>).");
+		return -1;
+	}
+
+	if (npc_name2id(npcname) != NULL) {
+		sprintf(label_output, "%s::%s", npcname, label);
+		npc_event( sd, label_output, 0 );
+		clif_displaymessage(fd, "Label was triggered.");
+		return 0;
+	}
+	else {
+		clif_displaymessage(fd, "NPC doesn't exist.");
+		return -1;
+	}
+}
+
+/*==========================================
+* @allchat by [rootKid]
+* Makes all players, except the invoker, send out a desired message
+* eg. @allchat blahblah
+*------------------------------------------*/
+ACMD_FUNC(allchat) {
+	struct map_session_data* iter_sd;
+	struct s_mapiterator* iter;
+	
+	char tempmes[200];
+	iter = mapit_getallusers();
+	nullpo_retr(-1, sd);
+	
+	memset(tempmes, '\0', sizeof(tempmes));
+	memset(atcmd_output, '\0', sizeof(atcmd_output));
+	
+	if (!message || !*message || sscanf(message, "%199[^\n]", tempmes) < 0) {
+		clif_displaymessage(fd, "Please, enter a message (usage: @me <message>).");
+		return -1;
+	}
+	
+	for (iter_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); iter_sd = (TBL_PC*)mapit_next(iter))
+		if (iter_sd != sd){	//Triggers on all players except the one who initiates it.
+		sprintf(atcmd_output, "%s : %s", iter_sd->status.name, tempmes);	// *%s %s*
+		clif_disp_overhead(&iter_sd->bl, atcmd_output);
+		}
+	mapit_free(iter);
+	return 0;
+}
+
+/*==========================================
+* @emo by [rootKid]
+* Makes invoker send out an emote
+* eg. @emo 3
+*------------------------------------------*/
+ACMD_FUNC(emo) {
+	if (!message || !*message) {
+		clif_displaymessage(fd, "Usage: @emo 1-81");
+	return -1;
+   }
+   clif_emotion(&sd->bl, atoi(message));
+   return 0;
+}
+
+/*==========================================
+* @allemo by [rootKid]
+* Makes all players, except the invoker, send out a desired emote
+* eg. @allemo 1
+*------------------------------------------*/
+ACMD_FUNC(allemo) {
+	struct map_session_data* iter_sd;
+	struct s_mapiterator* iter;	
+	iter = mapit_getallusers();
+	
+	if (!message || !*message) {
+		clif_displaymessage(fd, "Usage: @emo 1-81");
+	return -1;
+   }
+   
+   for (iter_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); iter_sd = (TBL_PC*)mapit_next(iter))
+		if (iter_sd != sd){	//Triggers on all players except the one who initiates it.
+			clif_emotion(&iter_sd->bl, atoi(message));
+	}
+	mapit_free(iter);
+   return 0;
+}
+
+/*==========================================
+* @alleffect by [rootKid]
+* Makes all players, except the invoker, send out a desired special effect
+* eg. @alleffect 89
+*------------------------------------------*/
+ACMD_FUNC(alleffect) {
+	struct map_session_data* iter_sd;
+	struct s_mapiterator* iter;
+	int type = 0, flag = 0;
+	iter = mapit_getallusers();
+	nullpo_retr(-1, sd);
+
+	if (!message || !*message || sscanf(message, "%d", &type) < 1) {
+		clif_displaymessage(fd, "Please, enter an effect number (usage: @effect <effect number>).");
+		return -1;
+	}
+	
+	for (iter_sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); iter_sd = (TBL_PC*)mapit_next(iter))
+		if (iter_sd != sd){	//Triggers on all players except the one who initiates it.
+			clif_specialeffect(&iter_sd->bl, type, (send_target)flag);
+	}
+	mapit_free(iter);
+	return 0;
+}
+
+
 /*==========================================
  *
  *------------------------------------------*/
@@ -5520,6 +5646,19 @@ ACMD_FUNC(npcmove)
 	} else
 		clif_displaymessage(fd, msg_txt(sd,1155)); // NPC moved
 
+	return 0;
+}
+
+
+// [Vykimo] No recall command
+ACMD_FUNC(norecall)
+{
+	nullpo_retr(-1, sd);
+	
+	sd->state.norecall = (sd->state.norecall==0);
+	if(sd->state.norecall)	clif_displaymessage(fd, "@norecall : You'll be not recalled when Emergency Call skill will be casted.");
+	else clif_displaymessage(fd, "@norecall : You'll be now recalled when Emergency Call skill will be casted.");
+	
 	return 0;
 }
 
@@ -10299,6 +10438,13 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(jumpto),
 		ACMD_DEF(jump),
 		ACMD_DEF(who),
+		ACMD_DEF(norecall),
+		ACMD_DEF2("nr",norecall),
+		ACMD_DEF(runlabel),		//rootKid
+		ACMD_DEF(allchat),		//rootKid
+		ACMD_DEF(emo),			//rootKid
+		ACMD_DEF(allemo),		//rootKid
+		ACMD_DEF(alleffect),	//rootKid
 		ACMD_DEF2("who2", who),
 		ACMD_DEF2("who3", who),
 		ACMD_DEF2("whomap", who),
