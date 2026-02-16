@@ -9,9 +9,9 @@
 # Use ONLY spaces to indent.
 # DONT USE TABS
 
-Header: # Metadata for future use
-    Version: 1
-    Type: MOD_SECRET_SOUL_LINK
+#Header: # Metadata for future use
+#  Type: MOD_SECRET_SOUL_LINK
+#  Version: 1
 SL_ALCHEMIST: |
     {
         bonus bStr,1;
