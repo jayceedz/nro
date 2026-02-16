@@ -222,6 +222,11 @@ int party_recv_noinfo(int party_id, uint32 char_id)
 
 		if( sd && sd->status.party_id == party_id )
 			sd->status.party_id = 0;
+		
+		if( sd->state.spb ) {
+			sd->state.spb = 0;
+			clif_displaymessage(sd->fd, msg_txt(sd,1072));
+		}
 	}
 
 	return 0;

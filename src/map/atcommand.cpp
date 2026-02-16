@@ -5559,6 +5559,31 @@ ACMD_FUNC(addwarp)
 	return 0;
 }
 
+
+ACMD_FUNC(partybuff)
+{ // [Vykimo]
+	struct party_data* p = NULL;
+	nullpo_retr(-1, sd);
+
+	if( !sd->status.party_id ) {
+		clif_displaymessage(fd, msg_txt(sd,1071)); // You're not in a party.
+		return -1;
+	}
+
+	p = party_search(sd->status.party_id);
+
+	if( sd->state.spb ) {
+		sd->state.spb = 0;
+		clif_displaymessage(fd, msg_txt(sd,1072)); // Displaying party member's buffs disabled.
+	} else {
+		sd->state.spb = 1;
+		clif_displaymessage(fd, msg_txt(sd,1073)); // Displaying party member's buffs enabled.
+	}
+
+	clif_party_info(p,sd);
+	return 0;
+}
+
 /*==========================================
  * @follow by [MouseJstr]
  * Follow a player .. staying no more then 5 spaces away
@@ -10473,6 +10498,8 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(whereis),
 		ACMD_DEF(mapflag),
 		ACMD_DEF(me),
+		ACMD_DEF(partybuff), // [Vykimo]
+		ACMD_DEF2("spb", partybuff), // [Vykimo]
 		ACMD_DEF(monsterignore),
 		ACMD_DEF(fakename),
 		ACMD_DEF(size),
