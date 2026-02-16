@@ -7501,7 +7501,7 @@ ACMD_FUNC(itemrain)
  * -> reward 5x Red Potion to all players on same map
  * if all -> all online players regardless of map
  *------------------------------------------*/
-ACMD_FUNC(itemshower)
+ACMD_FUNC(itemrainitemshower)
 {
 	char mode[16];
 	char item_token[100];
@@ -10963,6 +10963,8 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(agitstart2),
 		ACMD_DEF(agitend2),
 		ACMD_DEF(resetskill),
+		ACMD_DEF(itemrain),
+		ACMD_DEF(itemshower),
 		ACMD_DEF(resetstat),
 		ACMD_DEF2("storagelist", itemlist),
 		ACMD_DEF2("cartlist", itemlist),
