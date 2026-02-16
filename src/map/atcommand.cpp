@@ -7284,6 +7284,280 @@ ACMD_FUNC(changecharsex)
 	return 0;
 }
 
+
+// -----------------------------------------
+// @itemrain / @itemshower helpers
+// -----------------------------------------
+
+static bool atcommand_pick_cell_in_area(map_session_data* sd, int16 half, int16* out_x, int16* out_y) {
+	nullpo_ret(sd);
+	nullpo_ret(out_x);
+	nullpo_ret(out_y);
+
+	const int16 m = sd->bl.m;
+	const int16 sx = sd->bl.x;
+	const int16 sy = sd->bl.y;
+
+	for (int tries = 0; tries < 60; ++tries) {
+		const int16 rx = (int16)(sx + (rnd() % (2 * half + 1)) - half);
+		const int16 ry = (int16)(sy + (rnd() % (2 * half + 1)) - half);
+
+		if (rx <= 0 || ry <= 0)
+			continue;
+
+		// Cell blocked? skip.
+		if (map_getcell(m, rx, ry, CELL_CHKNOPASS))
+			continue;
+
+		*out_x = rx;
+		*out_y = ry;
+		return true;
+	}
+
+	// fallback: drop at player position
+	*out_x = sx;
+	*out_y = sy;
+	return true;
+}
+
+struct itemshower_report {
+	int32 players = 0;
+	int32 stacks_ok = 0;
+	int32 stacks_failed = 0;
+};
+
+static int atcommand_itemshower_give_sub(struct block_list* bl, va_list ap) {
+	map_session_data* tsd = (map_session_data*)bl;
+	std::shared_ptr<item_data>* it = va_arg(ap, std::shared_ptr<item_data>*);
+	int32 amount = va_arg(ap, int32);
+	itemshower_report* rep = va_arg(ap, itemshower_report*);
+
+	nullpo_ret(tsd);
+	nullpo_ret(it);
+	nullpo_ret(rep);
+
+	if (amount <= 0)
+		amount = 1;
+
+	rep->players++;
+
+	const bool stackable = itemdb_isstackable2(it->get());
+	const int32 give_count = stackable ? amount : 1;
+
+	for (int32 i = 0; i < amount; i += give_count) {
+		struct item item_tmp = {};
+		item_tmp.nameid = (*it)->nameid;
+		item_tmp.identify = 1;
+
+		char flag = pc_additem(tsd, &item_tmp, give_count, LOG_TYPE_COMMAND);
+		if (flag) {
+			rep->stacks_failed++;
+			clif_additem(tsd, 0, 0, flag);
+		}
+		else {
+			rep->stacks_ok++;
+		}
+	}
+
+	return 0;
+}
+
+// Pour @itemshower all (tous les joueurs online)
+static int atcommand_itemshower_all_sub(struct block_list* bl, va_list ap) {
+	return atcommand_itemshower_give_sub(bl, ap);
+}
+
+static void itemshower_give_to_sd(map_session_data* tsd, const std::shared_ptr<item_data>& it, int32 amount, itemshower_report* rep) {
+	nullpo_retv(tsd);
+	nullpo_retv(rep);
+
+	if (amount <= 0)
+		amount = 1;
+
+	rep->players++;
+
+	const bool stackable = itemdb_isstackable2(it.get());
+	const int32 give_count = stackable ? amount : 1;
+
+	for (int32 i = 0; i < amount; i += give_count) {
+		struct item item_tmp = {};
+		item_tmp.nameid = it->nameid;
+		item_tmp.identify = 1;
+
+		char flag = pc_additem(tsd, &item_tmp, give_count, LOG_TYPE_COMMAND);
+		if (flag) {
+			rep->stacks_failed++;
+			clif_additem(tsd, 0, 0, flag);
+		}
+		else {
+			rep->stacks_ok++;
+		}
+	}
+}
+
+// map_foreachinmap callback (BL_PC)
+static int atcommand_itemshower_inmap_sub(struct block_list* bl, va_list ap) {
+	map_session_data* tsd = (map_session_data*)bl;
+	auto itp = va_arg(ap, std::shared_ptr<item_data>*);
+	int32 amount = va_arg(ap, int32);
+	auto rep = va_arg(ap, itemshower_report*);
+
+	if (tsd == nullptr || itp == nullptr || rep == nullptr)
+		return 0;
+
+	itemshower_give_to_sd(tsd, *itp, amount, rep);
+	return 0;
+}
+
+// map_foreachpc callback (ALL online players)
+static int32 atcommand_itemshower_all_sub(map_session_data* tsd, va_list ap) {
+	auto itp = va_arg(ap, std::shared_ptr<item_data>*);
+	int32 amount = va_arg(ap, int32);
+	auto rep = va_arg(ap, itemshower_report*);
+
+	if (tsd == nullptr || itp == nullptr || rep == nullptr)
+		return 0;
+
+	itemshower_give_to_sd(tsd, *itp, amount, rep);
+	return 0;
+}
+
+/*==========================================
+ * @itemrain <ItemId|ItemName> <Amount> <Area>
+ * example: @itemrain 501 2 25
+ * -> scatter 2 drops (1 each) in a 25x25 area around command user
+ *------------------------------------------*/
+ACMD_FUNC(itemrain)
+{
+	char item_token[100];
+	int32 amount = 0;
+	int32 area = 0;
+
+	nullpo_retr(-1, sd);
+
+	if (!message || !*message ||
+		(sscanf(message, "\"%99[^\"]\" %11d %11d", item_token, &amount, &area) < 3 &&
+			sscanf(message, "%99s %11d %11d", item_token, &amount, &area) < 3))
+	{
+		clif_displaymessage(fd, "Usage: @itemrain <ItemId|ItemName> <Amount> <Area>");
+		clif_displaymessage(fd, "Example: @itemrain 501 2 25");
+		return -1;
+	}
+
+	if (amount <= 0) amount = 1;
+	if (area <= 0) area = 25;
+
+	// Cap area pour éviter le n'importe quoi
+	area = (int32)cap_value(area, 1, 61); // 61x61 max (ajuste si tu veux)
+	int16 half = (int16)(area / 2);
+
+	// Lookup item (name or numeric)
+	struct item_data *it = itemdb_searchname(item_token);
+	if (it == nullptr)
+		it = itemdb_exists(strtoul(item_token, nullptr, 10));
+
+	if (it == nullptr) {
+		clif_displaymessage(fd, msg_txt(sd, 19)); // Invalid item ID or name.
+		return -1;
+	}
+
+	// Anti-abus : limite de drops au sol
+	const int32 MAX_FLOORDROPS = 300;
+	int32 dropped = 0;
+
+	// Scatter = 1 unité par drop, même si stackable
+	for (int32 i = 0; i < amount; ++i) {
+		if (dropped >= MAX_FLOORDROPS) {
+			clif_displaymessage(fd, "[@itemrain] Floor drop limit reached, remaining drops skipped.");
+			break;
+		}
+
+		int16 x = sd->bl.x, y = sd->bl.y;
+		atcommand_pick_cell_in_area(sd, half, &x, &y);
+
+		struct item item_tmp = {};
+		item_tmp.nameid = it->nameid;
+		item_tmp.identify = 1;
+		int32 flags = 2; // cherche free cell en 5x5
+
+		map_addflooritem(&item_tmp, 1, sd->bl.m, x, y,
+			0, 0, 0,          // restrictions pickup
+			flags,                 // flags
+			0,                 // mob_id
+			true
+		);
+
+		dropped++;
+	}
+
+	sprintf(atcmd_output, "[@itemrain] Dropped %d/%d item(s) in %dx%d area around you.", dropped, amount, area, area);
+	clif_displaymessage(fd, atcmd_output);
+	return 0;
+}
+
+/*==========================================
+ * @itemshower <all|map> <ItemId|ItemName> <Amount>
+ * example: @itemshower map 501 5
+ * -> reward 5x Red Potion to all players on same map
+ * if all -> all online players regardless of map
+ *------------------------------------------*/
+ACMD_FUNC(itemshower)
+{
+	char mode[16];
+	char item_token[100];
+	int32 amount = 0;
+
+	nullpo_retr(-1, sd);
+
+	if (!message || !*message ||
+		(sscanf(message, "%15s %99s %11d", mode, item_token, &amount) < 3))
+	{
+		clif_displaymessage(fd, "Usage: @itemshower <all|map> <ItemId|ItemName> <Amount>");
+		clif_displaymessage(fd, "Example: @itemshower map 501 5");
+		return -1;
+	}
+
+	if (amount <= 0) amount = 1;
+
+	// Lookup item
+	struct item_data *it = itemdb_searchname(item_token);
+	if (it == nullptr)
+		it = itemdb_exists(strtoul(item_token, nullptr, 10));
+
+	if (it == nullptr) {
+		clif_displaymessage(fd, msg_txt(sd, 19)); // Invalid item ID or name.
+		return -1;
+	}
+
+	itemshower_report rep;
+
+	if (!strcmpi(mode, "map")) {
+		// same map only
+		map_foreachinmap(atcommand_itemshower_inmap_sub, sd->bl.m, BL_PC, &it, amount, &rep);
+
+		sprintf(atcmd_output, "[@itemshower map] Done: players=%d, stacks_ok=%d, stacks_failed=%d.",
+			rep.players, rep.stacks_ok, rep.stacks_failed);
+		clif_displaymessage(fd, atcmd_output);
+		return 0;
+	}
+
+	if (!strcmpi(mode, "all")) {
+		// all online players
+		// NOTE: selon révision, map_foreachpc existe. Si chez toi ça s'appelle autrement, adapte ici.
+		map_foreachpc(atcommand_itemshower_all_sub, &it, amount, &rep);
+
+		sprintf(atcmd_output, "[@itemshower all] Done: players=%d, stacks_ok=%d, stacks_failed=%d.",
+			rep.players, rep.stacks_ok, rep.stacks_failed);
+		clif_displaymessage(fd, atcmd_output);
+		return 0;
+	}
+
+	clif_displaymessage(fd, "Usage: @itemshower <all|map> <ItemId|ItemName> <Amount>");
+	return -1;
+}
+
+
+
 /*================================================
  * @mute - Mutes a player for a set amount of time
  *------------------------------------------------*/
