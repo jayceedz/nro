@@ -7501,7 +7501,7 @@ ACMD_FUNC(itemrain)
  * -> reward 5x Red Potion to all players on same map
  * if all -> all online players regardless of map
  *------------------------------------------*/
-ACMD_FUNC(itemrainitemshower)
+ACMD_FUNC(itemshower)
 {
 	char mode[16];
 	char item_token[100];
@@ -7803,6 +7803,8 @@ ACMD_FUNC(mobinfo)
 		j = 0;
 		for (i = 0; i < MAX_MOB_DROP_TOTAL; i++) {
 			int droprate;
+			int dropbonus = 0;
+
 			if (mob->dropitem[i].nameid <= 0 || mob->dropitem[i].p < 1 || (item_data = itemdb_exists(mob->dropitem[i].nameid)) == NULL)
 				continue;
 			droprate = mob->dropitem[i].p;
@@ -7814,28 +7816,29 @@ ACMD_FUNC(mobinfo)
 					droprate = 1;
 			}
 #endif
+			if((sd->sc.count && sd->sc.data[SC_ITEMBOOST])) // Display drop rate increase for SC_ITEMBOOST eg. Bubblegum
+				dropbonus += (droprate * sd->sc.data[SC_ITEMBOOST]->val1) / 100;
 			if (pc_isvip(sd)) // Display drop rate increase for VIP
-				droprate += (droprate * battle_config.vip_drop_increase) / 100;
-			if (item_data->slot)
-				sprintf(atcmd_output2, " - %s[%d]  %02.02f%%", item_data->jname, item_data->slot, (float)droprate / 100);
+				dropbonus += (droprate * battle_config.vip_drop_increase) / 100;
+			if (dropbonus)
+				sprintf(atcmd_output2, " %s  %02.02f%% + (%02.02f%%)", createItemLink(item_data->nameid, 0, NULL).c_str(), (float)droprate / 100, (float)dropbonus / 100);
 			else
-				sprintf(atcmd_output2, " - %s  %02.02f%%", item_data->jname, (float)droprate / 100);
+				sprintf(atcmd_output2, " %s  %02.02f%%", createItemLink(item_data->nameid, 0, NULL).c_str(), (float)droprate / 100);
 			strcat(atcmd_output, atcmd_output2);
-			if (++j % 3 == 0) {
-				clif_displaymessage(fd, atcmd_output);
-				strcpy(atcmd_output, " ");
-			}
+			j++;
+			clif_displaymessage(fd, atcmd_output);
+			strcpy(atcmd_output, " ");
 		}
 		if (j == 0)
 			clif_displaymessage(fd, msg_txt(sd,1246)); // This monster has no drops.
-		else if (j % 3 != 0)
-			clif_displaymessage(fd, atcmd_output);
 		// mvp
 		if (mob->mexp) {
 			float mvppercent, mvpremain;
 			sprintf(atcmd_output, msg_txt(sd,1247), mob->mexp); //  MVP Bonus EXP:%u
 			clif_displaymessage(fd, atcmd_output);
 			strcpy(atcmd_output, msg_txt(sd,1248)); //  MVP Items:
+			clif_displaymessage(fd, atcmd_output);
+			strcpy(atcmd_output, " ");
 			mvpremain = 100.0; //Remaining drop chance for official mvp drop mode
 			j = 0;
 			for (i = 0; i < MAX_MVP_DROP_TOTAL; i++) {
@@ -7848,24 +7851,14 @@ ACMD_FUNC(mobinfo)
 				}
 				if (mvppercent > 0) {
 					j++;
-					if (j == 1) {
-						if (item_data->slot)
-							sprintf(atcmd_output2, " %s[%d]  %02.02f%%", item_data->jname, item_data->slot, mvppercent);
-						else
-							sprintf(atcmd_output2, " %s  %02.02f%%", item_data->jname, mvppercent);
-					} else {
-						if (item_data->slot)
-							sprintf(atcmd_output2, " - %s[%d]  %02.02f%%", item_data->jname, item_data->slot, mvppercent);
-						else
-							sprintf(atcmd_output2, " - %s  %02.02f%%", item_data->jname, mvppercent);
-					}
+					sprintf(atcmd_output2, " %s  %02.02f%%", createItemLink(item_data->nameid, 0, NULL).c_str(), mvppercent);
 					strcat(atcmd_output, atcmd_output2);
+					clif_displaymessage(fd, atcmd_output);
+					strcpy(atcmd_output, " ");
 				}
 			}
 			if (j == 0)
 				clif_displaymessage(fd, msg_txt(sd,1249)); // This monster has no MVP prizes.
-			else
-				clif_displaymessage(fd, atcmd_output);
 		}
 	}
 	return 0;
@@ -8345,14 +8338,20 @@ ACMD_FUNC(whodrops)
 			for (j=0; j < MAX_SEARCH && item_data->mob[j].chance > 0; j++)
 			{
 				int dropchance = item_data->mob[j].chance;
+				int dropbonus = 0;
 
 #ifdef RENEWAL_DROP
 				if( battle_config.atcommand_mobinfo_type )
 					dropchance = dropchance * pc_level_penalty_mod(mob_db(item_data->mob[j].id)->lv - sd->status.base_level, mob_db(item_data->mob[j].id)->status.class_, mob_db(item_data->mob[j].id)->status.mode, 2) / 100;
 #endif
+  				if(sd->sc.count && sd->sc.data[SC_ITEMBOOST]) // Display drop rate increase for SC_ITEMBOOST eg. Bubblegum
+					dropbonus += (dropchance * sd->sc.data[SC_ITEMBOOST]->val1) / 100;
 				if (pc_isvip(sd)) // Display item rate increase for VIP
-					dropchance += (dropchance * battle_config.vip_drop_increase) / 100;
-				sprintf(atcmd_output, "- %s (%d): %02.02f%%", mob_db(item_data->mob[j].id)->jname, item_data->mob[j].id, dropchance/100.);
+					dropbonus += (dropchance * battle_config.vip_drop_increase) / 100;
+				if(dropbonus)
+					sprintf(atcmd_output, "- %s (%d): %02.02f%% + (%02.02f%%)", mob_db(item_data->mob[j].id)->jname, item_data->mob[j].id, dropchance/100., dropbonus/100.);
+                else
+					sprintf(atcmd_output, "- %s (%d): %02.02f%%", mob_db(item_data->mob[j].id)->jname, item_data->mob[j].id, dropchance/100.);
 				clif_displaymessage(fd, atcmd_output);
 			}
 		}
@@ -10963,8 +10962,6 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(agitstart2),
 		ACMD_DEF(agitend2),
 		ACMD_DEF(resetskill),
-		ACMD_DEF(itemrain),
-		ACMD_DEF(itemshower),
 		ACMD_DEF(resetstat),
 		ACMD_DEF2("storagelist", itemlist),
 		ACMD_DEF2("cartlist", itemlist),
@@ -11009,6 +11006,8 @@ void atcommand_basecommands(void) {
 		ACMD_DEF2("completequest", quest),
 		ACMD_DEF2("checkquest", quest),
 		ACMD_DEF(refineui),
+		ACMD_DEF(itemrain),
+		ACMD_DEF(itemshower),
 	};
 	AtCommandInfo* atcommand;
 	int i;
