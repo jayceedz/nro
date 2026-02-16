@@ -14383,6 +14383,37 @@ BUILDIN_FUNC(petrecovery)
 	return SCRIPT_CMD_SUCCESS;
 }
 
+BUILDIN_FUNC(itemlink) {
+	unsigned int nameid = script_getnum(st, 2), refine = 0;
+	struct s_item_link itemldata;
+	memset(&itemldata, 0, sizeof(itemldata));
+	FETCH(3, refine);
+	FETCH(4, itemldata.cards[0]);
+	FETCH(5, itemldata.cards[1]);
+	FETCH(6, itemldata.cards[2]);
+	FETCH(7, itemldata.cards[3]);
+	if (itemldata.cards[0] || itemldata.cards[1] || itemldata.cards[2] || itemldata.cards[3])
+		itemldata.flag.cards = 1;
+#if PACKETVER >= 20150225
+	char *command = (char *)script_getfuncname(st);
+	if (command[strlen(command) - 1] == '2') {
+		struct item it;
+		memset(&it, 0, sizeof(it));
+		script_getitem_randomoption(st, NULL, &it, command, 8);
+		for (uint8 i = 0; i < MAX_ITEM_RDM_OPT; ++i) {
+			if (it.option[i].id)
+				itemldata.flag.options = 1;
+		}
+		memcpy(&itemldata.options, &it.option, sizeof(it.option));
+	}
+#endif
+	std::string itemlstr = createItemLink(nameid, refine, &itemldata);
+	char *str = (char *)aMalloc((itemlstr.size() + 1) * sizeof(char));
+	safestrncpy(str, itemlstr.c_str(), itemlstr.size() + 1);
+	script_pushstr(st, str);
+	return SCRIPT_CMD_SUCCESS;
+}
+
 /*==========================================
  * pet attack skills [Valaris] //Rewritten by [Skotlex]
  *------------------------------------------*/
@@ -25226,6 +25257,9 @@ struct script_function buildin_func[] = {
 	BUILDIN_DEF(changequest, "ii?"),
 	BUILDIN_DEF(showevent, "i??"),
 	BUILDIN_DEF(questinfo_refresh, "?"),
+
+BUILDIN_DEF(itemlink, "i?????"),
+BUILDIN_DEF2(itemlink, "itemlink2", "iiiiiirrr"),
 
 	//Bound items [Xantara] & [Akinari]
 	BUILDIN_DEF2(getitem,"getitembound","vii?"),
