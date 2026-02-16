@@ -7533,6 +7533,7 @@ void clif_party_info(struct party_data* p, struct map_session_data *sd)
 {
 	struct map_session_data* party_sd = NULL, *target = NULL;
 	int i, c;
+	char output[NAME_LENGTH+10];
 #if PACKETVER < 20170502
 	const int M_SIZE = 46; // 4+NAME_LENGTH+MAP_NAME_LENGTH_EXT+1+1
 	unsigned char buf[2+2+NAME_LENGTH+46*MAX_PARTY];
